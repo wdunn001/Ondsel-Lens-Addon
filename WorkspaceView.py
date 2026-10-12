@@ -2576,6 +2576,11 @@ class WorkspaceView(QtWidgets.QScrollArea):
         try:
             if url.startswith(prefix):
                 stripped_url = url[len(prefix) :]
+                # A browser or desktop launcher may hand back the authority
+                # form, "ondsel://share/x" rather than "ondsel:share/x".
+                # Splitting that on "/" yields an empty sub_scheme, so
+                # normalise the slashes away first.
+                stripped_url = stripped_url.lstrip("/")
                 result = stripped_url.split("/")
                 sub_scheme = result[0]
                 if len(result) > 1:
@@ -2631,12 +2636,18 @@ class WorkspaceView(QtWidgets.QScrollArea):
             self.handle_download(
                 lambda: handlers.download_shared_model_to_memory(self.api, id1)
             )
-        else:
+        elif sub_scheme == "file":
             self.handle_download(
                 lambda: handlers.download_file_version_to_memory(
                     self.api, id1, id2, True
                 )
             )
+        else:
+            # parse_url logs the reason and answers (None, None, None) rather
+            # than raising, so without this branch an unparsed URL reached the
+            # file download with empty ids and reported a download failure for
+            # a URL that was never read.
+            logger.error(f"Cannot handle URL: {url}")
 
 
 # class NewWorkspaceDialog(QtGui.QDialog):
